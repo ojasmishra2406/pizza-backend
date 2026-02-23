@@ -1,59 +1,69 @@
 // Email Service for Order Notifications
 import nodemailer from 'nodemailer';
 
-// Function to get or create transporter (lazily initialized)
-let transporter = null;
-
+// Function to create a fresh transporter (no caching to avoid timeout issues)
 const getTransporter = () => {
-  if (!transporter) {
-    // Debug: Log email credentials (masked)
-    console.log('Initializing Email Config:', {
-      user: process.env.EMAIL_USER ? `${process.env.EMAIL_USER.substring(0, 5)}***` : 'NOT SET',
-      pass: process.env.EMAIL_PASSWORD ? '***SET***' : 'NOT SET'
-    });
-
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.warn('⚠️  Email credentials not configured. Emails will not be sent.');
-      return null;
-    }
-
-    // Configure email transporter
-    transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // use TLS
-      family: 4, // Force IPv4 to avoid IPv6 connection issues
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
-
-    // Verify transporter configuration
-    transporter.verify(function (error, success) {
-      if (error) {
-        console.log('❌ Email configuration error:', error.message);
-      } else {
-        console.log('✅ Email server is ready to send messages');
-      }
-    });
+  // Check credentials
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.warn('⚠️  Email credentials not configured. Emails will not be sent.');
+    return null;
   }
+
+  console.log('📧 [TRANSPORTER] Creating fresh SMTP connection...');
+
+  // Create fresh transporter for each email to avoid connection timeouts
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // use TLS
+    family: 4, // Force IPv4 to avoid IPv6 connection issues
+    pool: false, // Disable connection pooling to force fresh connections
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: false
+    },
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+  });
+
   return transporter;
 };
 
 // @desc    Send order confirmation email
 export const sendOrderConfirmationEmail = async (order) => {
+  console.log('📧 [EMAIL SERVICE] sendOrderConfirmationEmail called');
+  console.log('📧 [EMAIL SERVICE] Order ID:', order._id);
+  
   try {
     const transporter = getTransporter();
+    
     if (!transporter) {
-      console.log('📧 [EMAIL] Skipping order confirmation - email not configured');
+      console.log('⚠️  [EMAIL SERVICE] Skipping - transporter not configured');
       return { success: true, skipped: true };
     }
 
+    console.log('📧 [EMAIL SERVICE] Transporter obtained successfully');
+
     const { userId, items, deliveryLocation, totalAmount, _id } = order;
+
+    console.log('📧 [EMAIL SERVICE] Order details:', {
+      orderId: _id,
+      userId: userId?._id || userId,
+      userName: userId?.name,
+      userEmail: userId?.email,
+      itemCount: items?.length,
+      totalAmount
+    });
+
+    if (!userId || !userId.email) {
+      console.error('❌ [EMAIL SERVICE] Missing user email - cannot send email');
+      console.error('   userId object:', userId);
+      return { success: false, error: 'Missing user email' };
+    }
 
     const itemsList = items
       .map(
@@ -89,6 +99,8 @@ Pizza App Team
       `,
     };
 
+    console.log('📧 [EMAIL SERVICE] Sending email to:', emailContent.to);
+    
     // Send actual email
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -96,15 +108,18 @@ Pizza App Team
     });
 
     // Log for debugging
-    console.log('📧 [EMAIL] Order Confirmation Sent:');
-    console.log(`   To: ${emailContent.to}`);
-    console.log(`   Subject: ${emailContent.subject}`);
-    console.log(`   Order ID: ${_id}`);
-    console.log(`   Total: ₹${totalAmount.toFixed(2)}`);
+    console.log('✅ [EMAIL SERVICE] Email sent successfully!');
+    console.log('   To:', emailContent.to);
+    console.log('   Subject:', emailContent.subject);
+    console.log('   Order ID:', _id);
 
     return { success: true };
   } catch (error) {
-    console.error('Email sending error:', error);
+    console.error('❌ [EMAIL SERVICE] Error sending email:');
+    console.error('   Name:', error.name);
+    console.error('   Message:', error.message);
+    console.error('   Code:', error.code);
+    console.error('   Stack:', error.stack);
     throw error;
   }
 };

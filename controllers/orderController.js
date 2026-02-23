@@ -126,9 +126,19 @@ export const createOrder = asyncHandler(async (req, res) => {
   // Populate user details for email
   await order.populate('userId', 'name email');
 
+  console.log('📧 [ORDER] Attempting to send order confirmation email...');
+  console.log('📧 [ORDER] User data:', { 
+    userId: order.userId?._id, 
+    name: order.userId?.name, 
+    email: order.userId?.email 
+  });
+
   // Send order confirmation email (async, don't wait)
   sendOrderConfirmationEmail(order).catch((error) => {
-    console.error('Failed to send order confirmation email:', error);
+    console.error('❌ [ORDER] Failed to send order confirmation email:');
+    console.error('   Error:', error.message);
+    console.error('   Code:', error.code);
+    console.error('   Full error:', error);
   });
 
   res.status(201).json({
