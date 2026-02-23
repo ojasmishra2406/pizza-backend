@@ -18,14 +18,18 @@ const orderSchema = new mongoose.Schema(
           required: true,
         },
         selectedSize: {
-          name: {
-            type: String,
-            required: true,
+          type: {
+            name: {
+              type: String,
+              required: true,
+            },
+            priceMultiplier: {
+              type: Number,
+              required: true,
+            },
           },
-          priceMultiplier: {
-            type: Number,
-            required: true,
-          },
+          required: false, // Optional for items without sizes (drinks, sides)
+          default: null,
         },
         selectedToppings: [
           {

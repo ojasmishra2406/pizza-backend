@@ -22,6 +22,7 @@ const getTransporter = () => {
       host: 'smtp.gmail.com',
       port: 587,
       secure: false, // use TLS
+      family: 4, // Force IPv4 to avoid IPv6 connection issues
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
