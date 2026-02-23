@@ -14,37 +14,22 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS Configuration
+// CORS Configuration - Production Safe
 const corsOptions = {
   origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://pizza-frontend.netlify.app', // Add your Netlify domain when deployed
-    'https://pizza-ordering.vercel.app',  // Add your Vercel domain when deployed
+    'http://localhost:3000',           // Local development
+    'http://localhost:5173',           // Vite default port
+    'http://localhost:5174',           // Vite alternate port
+    'https://slice-lab.netlify.app',   // Production Netlify frontend
   ],
-  credentials: true,
+  credentials: true,                   // Allow cookies/authorization headers
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
-// Use CORS with options
+// Apply CORS middleware
 app.use(cors(corsOptions));
-
-// For development, also allow all origins if NODE_ENV is development
-if (process.env.NODE_ENV === 'development') {
-  console.log('🔓 [CORS] Development mode - allowing all origins');
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-    next();
-  });
-}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
