@@ -10,7 +10,7 @@ const menuData = [
   // PIZZAS
   // ============================================
   {
-    name: 'Margritta',
+    name: 'Margherita Pizza',
     category: 'pizza',
     basePrice: 20,
     image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400',
