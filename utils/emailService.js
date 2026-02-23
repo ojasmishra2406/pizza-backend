@@ -1,4 +1,23 @@
 // Email Service for Order Notifications
+// 
+// ============================================
+// RENDER DEPLOYMENT NOTES
+// ============================================
+// ENETUNREACH errors occur on Render because:
+// 1. IPv6 routing issues - Render's network may attempt IPv6 first, but Gmail SMTP
+//    doesn't reliably respond to IPv6 from all cloud providers
+// 2. Container cold starts - First connection attempts may timeout due to DNS resolution delays
+// 3. Network latency - Cloud platforms have variable network latency vs localhost
+// 4. Connection pooling - Stale pooled connections timeout on serverless/container restarts
+//
+// Solutions implemented:
+// ✅ family: 4 - Forces IPv4 connections (bypasses IPv6 routing failures)
+// ✅ pool: false - Creates fresh connections (no stale connection reuse)
+// ✅ Extended timeouts - Accounts for cloud network latency (30-45s vs 10s)
+// ✅ maxConnections: 1 - Prevents connection pooling issues
+// ✅ dnsTimeout - Handles DNS resolution delays on container startup
+// ============================================
+
 import nodemailer from 'nodemailer';
 
 // Function to create a fresh transporter (no caching to avoid timeout issues)
@@ -11,23 +30,49 @@ const getTransporter = () => {
 
   console.log('📧 [TRANSPORTER] Creating fresh SMTP connection...');
 
-  // Create fresh transporter for each email to avoid connection timeouts
+  // ============================================
+  // RENDER-OPTIMIZED NODEMAILER CONFIG
+  // ============================================
+  // Fixes ENETUNREACH errors on cloud platforms
+  // by forcing IPv4 and adding generous timeouts
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
-    secure: false, // use TLS
-    family: 4, // Force IPv4 to avoid IPv6 connection issues
-    pool: false, // Disable connection pooling to force fresh connections
+    secure: false, // Use STARTTLS (required for port 587)
+    
+    // CRITICAL: Force IPv4 to avoid Render's IPv6 routing issues
+    family: 4,
+    
+    // Disable pooling - create fresh connection per email
+    // Prevents stale connection timeouts on serverless/container platforms
+    pool: false,
+    maxConnections: 1,
+    maxMessages: 1,
+    
+    // Authentication
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD,
     },
+    
+    // TLS Configuration
     tls: {
-      rejectUnauthorized: false
+      rejectUnauthorized: false, // Allow self-signed certs (development)
+      ciphers: 'SSLv3',          // Gmail-compatible cipher
+      minVersion: 'TLSv1.2',     // Minimum TLS version
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    
+    // RENDER-SPECIFIC: Generous timeouts for cloud network latency
+    connectionTimeout: 30000,  // 30 seconds to establish TCP connection
+    greetingTimeout: 30000,    // 30 seconds to receive server greeting
+    socketTimeout: 45000,      // 45 seconds for socket inactivity
+    
+    // DNS and socket configuration
+    dnsTimeout: 30000,         // DNS resolution timeout
+    
+    // Logging (enable in production for debugging)
+    // logger: process.env.NODE_ENV === 'production',
+    // debug: process.env.NODE_ENV !== 'production',
   });
 
   return transporter;
