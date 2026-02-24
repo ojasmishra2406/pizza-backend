@@ -11,7 +11,7 @@
 // 4. Connection pooling - Stale pooled connections timeout on serverless/container restarts
 //
 // Solutions implemented:
-// ✅ family: 4 - Forces IPv4 connections (bypasses IPv6 routing failures)
+// ✅ socketOptions.family: 4 - Forces IPv4 connections at socket level
 // ✅ pool: false - Creates fresh connections (no stale connection reuse)
 // ✅ Extended timeouts - Accounts for cloud network latency (30-45s vs 10s)
 // ✅ maxConnections: 1 - Prevents connection pooling issues
@@ -19,6 +19,11 @@
 // ============================================
 
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// CRITICAL: Force Node.js DNS to prefer IPv4 (system-level)
+// This ensures all DNS lookups return IPv4 addresses first
+dns.setDefaultResultOrder('ipv4first');
 
 // Function to create a fresh transporter (no caching to avoid timeout issues)
 const getTransporter = () => {
@@ -39,9 +44,6 @@ const getTransporter = () => {
     host: 'smtp.gmail.com',
     port: 587,
     secure: false, // Use STARTTLS (required for port 587)
-    
-    // CRITICAL: Force IPv4 to avoid Render's IPv6 routing issues
-    family: 4,
     
     // Disable pooling - create fresh connection per email
     // Prevents stale connection timeouts on serverless/container platforms
@@ -69,6 +71,12 @@ const getTransporter = () => {
     
     // DNS and socket configuration
     dnsTimeout: 30000,         // DNS resolution timeout
+    
+    // CRITICAL FIX: Force IPv4 at socket level for Render
+    // This prevents ENETUNREACH errors caused by IPv6 routing failures
+    socketOptions: {
+      family: 4, // Force IPv4 socket connection
+    },
     
     // Logging (enable in production for debugging)
     // logger: process.env.NODE_ENV === 'production',
