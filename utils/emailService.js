@@ -4,7 +4,17 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazily instantiated so a missing key doesn't crash the server on startup
+let _resend = null;
+const getResend = () => {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not set in environment variables');
+  }
+  if (!_resend) {
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
+};
 
 // Until you verify a custom domain in Resend, the sender must be:
 // onboarding@resend.dev  — only sends to your own verified email address.
@@ -78,7 +88,7 @@ export const sendOrderConfirmationEmail = async (order) => {
   `);
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: userId.email,
       subject: `Order Confirmed — #${String(_id).slice(-8)}`,
@@ -137,7 +147,7 @@ export const sendPaymentSuccessEmail = async (order) => {
   `);
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: userId.email,
       subject: `Payment Confirmed — Order #${String(_id).slice(-8)}`,
@@ -188,7 +198,7 @@ export const sendOrderStatusEmail = async (order, newStatus) => {
   `);
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: userId.email,
       subject: `${icon} Order Update — ${label} | #${String(_id).slice(-8)}`,
