@@ -28,7 +28,7 @@ dns.setDefaultResultOrder('ipv4first');
 // Function to create a fresh transporter (no caching to avoid timeout issues)
 const getTransporter = () => {
   // Check credentials
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn('⚠️  Email credentials not configured. Emails will not be sent.');
     return null;
   }
@@ -42,8 +42,8 @@ const getTransporter = () => {
   // by forcing IPv4 and adding generous timeouts
   const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Use STARTTLS (required for port 587)
+    port: 465,
+    secure: true, // SSL on port 465 (avoids Render blocking STARTTLS on 587)
     
     // Disable pooling - create fresh connection per email
     // Prevents stale connection timeouts on serverless/container platforms
@@ -54,7 +54,7 @@ const getTransporter = () => {
     // Authentication
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
+      pass: process.env.EMAIL_PASS,
     },
     
     // TLS Configuration
